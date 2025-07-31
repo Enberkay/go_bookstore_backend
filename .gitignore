@@ -1,0 +1,20 @@
+# Compiled binaries
+*.exe
+*.test
+
+# Go modules
+vendor/
+
+# Dependencies
+vendor/
+
+# Cache
+.cache/
+go.sum
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+
+.env
