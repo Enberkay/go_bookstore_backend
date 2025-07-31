@@ -6,6 +6,7 @@ import (
 	"go_bookstore_backend/utils"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 func Register(c *fiber.Ctx) error {
@@ -42,6 +43,22 @@ func Login(c *fiber.Ctx) error {
 }
 
 func CurrentUser(c *fiber.Ctx) error {
-	user := c.Locals("user").(map[string]interface{})
-	return c.JSON(user)
+	claims := c.Locals("user").(jwt.MapClaims)
+
+	// Extract ID
+	id := uint(claims["id"].(float64))
+
+	// Query from DB
+	var user models.User
+	if err := config.DB.First(&user, id).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "User not found",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"id":    user.ID,
+		"email": user.Email,
+		"role":  user.Role,
+	})
 }

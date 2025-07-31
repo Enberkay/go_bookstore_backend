@@ -1,0 +1,9 @@
+basePath: /
+host: localhost:3000
+info:
+  contact: {}
+  description: A RESTful API for managing a bookstore
+  title: Go Bookstore API
+  version: "1.0"
+paths: {}
+swagger: "2.0"
