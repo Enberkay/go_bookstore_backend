@@ -40,3 +40,8 @@ func Login(c *fiber.Ctx) error {
 	token, _ := utils.GenerateJWT(user.ID, user.Email, user.Role)
 	return c.JSON(fiber.Map{"token": token})
 }
+
+func CurrentUser(c *fiber.Ctx) error {
+	user := c.Locals("user").(map[string]interface{})
+	return c.JSON(user)
+}
