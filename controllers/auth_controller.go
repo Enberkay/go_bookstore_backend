@@ -22,3 +22,21 @@ func Register(c *fiber.Ctx) error {
 	config.DB.Create(&user)
 	return c.JSON(user)
 }
+
+func Login(c *fiber.Ctx) error {
+	var input models.User
+	var user models.User
+
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
+	}
+	if err := config.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
+		return c.Status(401).JSON(fiber.Map{"error": "Invalid email"})
+	}
+	if err := utils.CheckPassword(user.Password, input.Password); err != nil {
+		return c.Status(401).JSON(fiber.Map{"error": "Invalid password"})
+	}
+
+	token, _ := utils.GenerateJWT(user.ID, user.Email, user.Role)
+	return c.JSON(fiber.Map{"token": token})
+}
