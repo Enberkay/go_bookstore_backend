@@ -27,6 +27,7 @@ func main() {
 	models.MigrateUsers(config.DB)
 	models.MigrateBooks(config.DB)
 	models.MigrateCarts(config.DB)
+	models.MigrateOrders(config.DB)
 
 	app := fiber.New()
 	app.Use(logger.New())
