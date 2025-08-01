@@ -69,6 +69,7 @@ type AddToCartRequest struct {
 }
 
 func ViewCart(c *fiber.Ctx) error {
+	// ดึง claims จาก JWT
 	claims, ok := c.Locals("user").(jwt.MapClaims)
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -76,16 +77,24 @@ func ViewCart(c *fiber.Ctx) error {
 		})
 	}
 
-	userID := uint(claims["id"].(float64))
+	userIDFloat, ok := claims["id"].(float64) // jwt.MapClaims แปลงตัวเลขเป็น float64
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid token data",
+		})
+	}
 
-	var cart []models.Cart
-	if err := config.DB.Preload("Book").Where("user_id = ?", userID).Find(&cart).Error; err != nil {
+	userID := uint(userIDFloat)
+
+	// Query carts พร้อม preload User และ Book
+	var carts []models.Cart
+	if err := config.DB.Preload("User").Preload("Book").Where("user_id = ?", userID).Find(&carts).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to retrieve cart",
 		})
 	}
 
-	return c.JSON(cart)
+	return c.JSON(carts)
 }
 
 func RemoveFromCart(c *fiber.Ctx) error {
