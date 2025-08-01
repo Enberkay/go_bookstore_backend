@@ -30,4 +30,9 @@ func SetupRoutes(app *fiber.App) {
 	cart.Post("/", controllers.AddToCart)
 	cart.Delete("/:id", controllers.RemoveFromCart)
 
+	// Order Routes
+	orders := api.Group("/orders")
+	orders.Post("/", middlewares.RequireAuth, controllers.PlaceOrder)
+	orders.Get("/", middlewares.RequireAuth, controllers.GetMyOrders)
+
 }
