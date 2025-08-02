@@ -9,6 +9,16 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+// Register godoc
+// @Summary Register a new user
+// @Description Register by providing email and password
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param user body models.User true "User info"
+// @Success 200 {object} models.User
+// @Failure 400 {object} map[string]string
+// @Router /users/register [post]
 func Register(c *fiber.Ctx) error {
 	var input models.User
 	if err := c.BodyParser(&input); err != nil {
@@ -24,6 +34,17 @@ func Register(c *fiber.Ctx) error {
 	return c.JSON(user)
 }
 
+// Login godoc
+// @Summary User login
+// @Description Login with email and password to get JWT token
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param user body models.User true "User login credentials"
+// @Success 200 {object} map[string]string "JWT token"
+// @Failure 400 {object} map[string]string "Invalid input"
+// @Failure 401 {object} map[string]string "Invalid email or password"
+// @Router /users/login [post]
 func Login(c *fiber.Ctx) error {
 	var input models.User
 	var user models.User
@@ -42,6 +63,16 @@ func Login(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"token": token})
 }
 
+// CurrentUser godoc
+// @Summary Get current user info
+// @Description Get info of logged-in user by JWT token
+// @Tags users
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{} "User information"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Router /users/me [get]
+// @Security ApiKeyAuth
 func CurrentUser(c *fiber.Ctx) error {
 	claims := c.Locals("user").(jwt.MapClaims)
 
