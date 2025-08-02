@@ -37,7 +37,7 @@ func SetupRoutes(app *fiber.App) {
 
 	// Wishlist Routes (user authenticated)
 	wishlist := api.Group("/wishlist", middlewares.RequireAuth)
-	wishlist.Post("/", controllers.AddToWishlist)
+	wishlist.Post("/toggle", controllers.ToggleWishlist)
 	wishlist.Get("/", controllers.ViewWishlist)
-	wishlist.Delete("/:id", controllers.RemoveFromWishlist)
+
 }

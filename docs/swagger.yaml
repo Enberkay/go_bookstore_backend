@@ -7,6 +7,24 @@ definitions:
       quantity:
         type: integer
     type: object
+  controllers.ErrorResponse:
+    properties:
+      error:
+        example: Unauthorized
+        type: string
+    type: object
+  controllers.MessageResponse:
+    properties:
+      message:
+        example: Removed from wishlist
+        type: string
+    type: object
+  controllers.ToggleWishlistRequest:
+    properties:
+      book_id:
+        example: 1
+        type: integer
+    type: object
   models.Book:
     properties:
       author:
@@ -77,6 +95,19 @@ definitions:
         description: '"admin" หรือ "user"'
         type: string
     type: object
+  models.Wishlist:
+    properties:
+      book:
+        $ref: '#/definitions/models.Book'
+      bookID:
+        type: integer
+      id:
+        type: integer
+      user:
+        $ref: '#/definitions/models.User'
+      userID:
+        type: integer
+    type: object
 host: localhost:3000
 info:
   contact: {}
@@ -84,6 +115,72 @@ info:
   title: Go Bookstore API
   version: "1.0"
 paths:
+  /api/wishlist:
+    get:
+      description: Retrieve all wishlist items of the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Wishlist'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Server error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: View current user's wishlist
+      tags:
+      - Wishlist
+  /api/wishlist/toggle:
+    post:
+      consumes:
+      - application/json
+      description: Toggle a book in the user's wishlist. Adds if not exists, removes
+        if exists.
+      parameters:
+      - description: Book ID to toggle
+        in: body
+        name: wishlist
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.ToggleWishlistRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Removed from wishlist
+          schema:
+            $ref: '#/definitions/controllers.MessageResponse'
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Wishlist'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+        "500":
+          description: Server error
+          schema:
+            $ref: '#/definitions/controllers.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Add or remove book from wishlist (toggle behavior)
+      tags:
+      - Wishlist
   /books:
     get:
       consumes:
