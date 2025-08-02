@@ -7,6 +7,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
+	"gorm.io/gorm"
 )
 
 // Register godoc
@@ -16,22 +17,50 @@ import (
 // @Accept json
 // @Produce json
 // @Param user body models.User true "User info"
-// @Success 200 {object} models.User
+// @Success 201 {object} models.UserResponse
 // @Failure 400 {object} map[string]string
+// @Failure 409 {object} map[string]string
+// @Failure 500 {object} map[string]string
 // @Router /users/register [post]
 func Register(c *fiber.Ctx) error {
 	var input models.User
+
+	// parse body
 	if err := c.BodyParser(&input); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
-	hash, _ := utils.HashPassword(input.Password)
+	if input.Email == "" || input.Password == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Email and password are required"})
+	}
+
+	// ตรวจสอบ email ซ้ำ
+	var existingUser models.User
+	if err := config.DB.Where("email = ?", input.Email).First(&existingUser).Error; err == nil {
+		// พบ email แล้ว
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "Email already exists"})
+	} else if err != gorm.ErrRecordNotFound {
+		// error อื่นจาก DB
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error"})
+	}
+
+	// hash password
+	hash, err := utils.HashPassword(input.Password)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to hash password"})
+	}
+
 	user := models.User{
 		Email:    input.Email,
 		Password: hash,
 		Role:     "user",
 	}
-	config.DB.Create(&user)
-	return c.JSON(user)
+
+	// save user
+	if err := config.DB.Create(&user).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create user"})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(user.ToResponse())
 }
 
 // Login godoc
@@ -42,24 +71,41 @@ func Register(c *fiber.Ctx) error {
 // @Produce json
 // @Param user body models.User true "User login credentials"
 // @Success 200 {object} map[string]string "JWT token"
-// @Failure 400 {object} map[string]string "Invalid input"
-// @Failure 401 {object} map[string]string "Invalid email or password"
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
 // @Router /users/login [post]
 func Login(c *fiber.Ctx) error {
 	var input models.User
 	var user models.User
 
+	// parse body
 	if err := c.BodyParser(&input); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
-	if err := config.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
-		return c.Status(401).JSON(fiber.Map{"error": "Invalid email"})
-	}
-	if err := utils.CheckPassword(user.Password, input.Password); err != nil {
-		return c.Status(401).JSON(fiber.Map{"error": "Invalid password"})
+	if input.Email == "" || input.Password == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Email and password are required"})
 	}
 
-	token, _ := utils.GenerateJWT(user.ID, user.Email, user.Role)
+	// find user
+	if err := config.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid email or password"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error"})
+	}
+
+	// check password
+	if err := utils.CheckPassword(user.Password, input.Password); err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid email or password"})
+	}
+
+	// generate JWT
+	token, err := utils.GenerateJWT(user.ID, user.Email, user.Role)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate token"})
+	}
+
 	return c.JSON(fiber.Map{"token": token})
 }
 
@@ -69,27 +115,31 @@ func Login(c *fiber.Ctx) error {
 // @Tags users
 // @Accept json
 // @Produce json
-// @Success 200 {object} map[string]interface{} "User information"
-// @Failure 401 {object} map[string]string "Unauthorized"
+// @Success 200 {object} models.UserResponse
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
 // @Router /users/me [get]
 // @Security ApiKeyAuth
 func CurrentUser(c *fiber.Ctx) error {
-	claims := c.Locals("user").(jwt.MapClaims)
-
-	// Extract ID
-	id := uint(claims["id"].(float64))
-
-	// Query from DB
-	var user models.User
-	if err := config.DB.First(&user, id).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "User not found",
-		})
+	claims, ok := c.Locals("user").(jwt.MapClaims)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid user claims"})
 	}
 
-	return c.JSON(fiber.Map{
-		"id":    user.ID,
-		"email": user.Email,
-		"role":  user.Role,
-	})
+	idFloat, ok := claims["id"].(float64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token claims"})
+	}
+	id := uint(idFloat)
+
+	var user models.User
+	if err := config.DB.First(&user, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error"})
+	}
+
+	return c.JSON(user.ToResponse())
 }
