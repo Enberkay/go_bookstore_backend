@@ -8,6 +8,18 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+// PlaceOrder godoc
+// @Summary Place a new order
+// @Description Place an order from the logged-in user's cart, deduct stock, and clear the cart
+// @Tags orders
+// @Accept json
+// @Produce json
+// @Success 201 {object} models.Order
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Security ApiKeyAuth
+// @Router /orders [post]
 func PlaceOrder(c *fiber.Ctx) error {
 	claims, ok := c.Locals("user").(jwt.MapClaims)
 	if !ok {
@@ -69,6 +81,17 @@ func PlaceOrder(c *fiber.Ctx) error {
 	return c.Status(201).JSON(fullOrder)
 }
 
+// GetMyOrders godoc
+// @Summary Get orders of logged-in user
+// @Description Retrieve all orders placed by the logged-in user with items and book details
+// @Tags orders
+// @Accept json
+// @Produce json
+// @Success 200 {array} models.Order
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Security ApiKeyAuth
+// @Router /orders [get]
 func GetMyOrders(c *fiber.Ctx) error {
 	claims, ok := c.Locals("user").(jwt.MapClaims)
 	if !ok {

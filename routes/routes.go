@@ -16,7 +16,7 @@ func SetupRoutes(app *fiber.App) {
 	auth.Post("/login", controllers.Login)
 	auth.Get("/me", middlewares.RequireAuth, controllers.CurrentUser)
 
-	// Book Routes
+	// Book Routes (admin protected for modification)
 	books := api.Group("/books")
 	books.Get("/", controllers.GetBooks)
 	books.Get("/:id", controllers.GetBook)
@@ -24,15 +24,20 @@ func SetupRoutes(app *fiber.App) {
 	books.Put("/:id", middlewares.RequireAuth, middlewares.RequireRole("admin"), controllers.UpdateBook)
 	books.Delete("/:id", middlewares.RequireAuth, middlewares.RequireRole("admin"), controllers.DeleteBook)
 
-	// Cart Routes
+	// Cart Routes (user authenticated)
 	cart := api.Group("/cart", middlewares.RequireAuth)
 	cart.Get("/", controllers.ViewCart)
 	cart.Post("/", controllers.AddToCart)
 	cart.Delete("/:id", controllers.RemoveFromCart)
 
-	// Order Routes
-	orders := api.Group("/orders")
-	orders.Post("/", middlewares.RequireAuth, controllers.PlaceOrder)
-	orders.Get("/", middlewares.RequireAuth, controllers.GetMyOrders)
+	// Order Routes (user authenticated)
+	orders := api.Group("/orders", middlewares.RequireAuth)
+	orders.Post("/", controllers.PlaceOrder)
+	orders.Get("/", controllers.GetMyOrders)
 
+	// Wishlist Routes (user authenticated)
+	wishlist := api.Group("/wishlist", middlewares.RequireAuth)
+	wishlist.Post("/", controllers.AddToWishlist)
+	wishlist.Get("/", controllers.ViewWishlist)
+	wishlist.Delete("/:id", controllers.RemoveFromWishlist)
 }

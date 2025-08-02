@@ -13,14 +13,21 @@ var DB *gorm.DB
 
 func LoadEnv() {
 	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env")
+		log.Fatal("Error loading .env file")
 	}
 }
 
 func ConnectDB() {
-	db, err := gorm.Open(postgres.Open(os.Getenv("DATABASE_URL")), &gorm.Config{})
-	if err != nil {
-		log.Fatal("Failed to connect to DB")
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		log.Fatal("DATABASE_URL not found")
 	}
-	DB = db
+
+	var err error
+	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		log.Fatal("Failed to connect to DB:", err)
+	}
+
+	log.Println("Connected to DB")
 }
