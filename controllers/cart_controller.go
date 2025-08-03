@@ -40,6 +40,7 @@ func AddToCart(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid token data"})
 	}
 
+	// Step 1: parse request body
 	var req AddToCartRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
@@ -48,16 +49,28 @@ func AddToCart(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "book_id and quantity must be valid"})
 	}
 
+	// Step 2: ตรวจสอบ stock ก่อน
+	var book models.Book
+	if err := config.DB.First(&book, req.BookID).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Book not found"})
+	}
+	if book.Stock < req.Quantity {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Not enough stock available",
+		})
+	}
+
+	// Step 3: บันทึกตะกร้า
 	cart := models.Cart{
 		UserID:   uint(userID),
 		BookID:   req.BookID,
 		Quantity: req.Quantity,
 	}
-
 	if err := config.DB.Create(&cart).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to add to cart"})
 	}
 
+	// Step 4: preload ข้อมูลสำหรับ response
 	var created models.Cart
 	if err := config.DB.Preload("Book").Preload("User").First(&created, cart.ID).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load cart details"})
