@@ -14,7 +14,7 @@ import (
 // @Tags orders
 // @Accept json
 // @Produce json
-// @Success 201 {object} models.Order
+// @Success 201 {object} models.OrderResponse
 // @Failure 400 {object} map[string]string
 // @Failure 401 {object} map[string]string
 // @Failure 500 {object} map[string]string
@@ -52,7 +52,7 @@ func PlaceOrder(c *fiber.Ctx) error {
 		orderItems = append(orderItems, models.OrderItem{
 			BookID:    item.BookID,
 			Quantity:  item.Quantity,
-			UnitPrice: item.Book.Price,
+			UnitPrice: float64(item.Book.Price),
 		})
 
 		// หัก stock
@@ -78,7 +78,7 @@ func PlaceOrder(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to load order"})
 	}
 
-	return c.Status(201).JSON(fullOrder)
+	return c.Status(201).JSON(fullOrder.ToResponse())
 }
 
 // GetMyOrders godoc
@@ -87,7 +87,7 @@ func PlaceOrder(c *fiber.Ctx) error {
 // @Tags orders
 // @Accept json
 // @Produce json
-// @Success 200 {array} models.Order
+// @Success 200 {array} models.OrderResponse
 // @Failure 401 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Security ApiKeyAuth
@@ -102,12 +102,17 @@ func GetMyOrders(c *fiber.Ctx) error {
 	var orders []models.Order
 	if err := config.DB.
 		Preload("User").
-		Preload("Items").
 		Preload("Items.Book").
 		Where("user_id = ?", userID).
 		Find(&orders).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch orders"})
 	}
 
-	return c.JSON(orders)
+	// แปลงเป็น DTO
+	var response []models.OrderResponse
+	for _, order := range orders {
+		response = append(response, order.ToResponse())
+	}
+
+	return c.JSON(response)
 }
