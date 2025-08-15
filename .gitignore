@@ -18,3 +18,5 @@ go.sum
 *.swp
 
 .env
+
+.DS_Store
